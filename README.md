@@ -1,0 +1,1 @@
+# emergence-git-workflow
