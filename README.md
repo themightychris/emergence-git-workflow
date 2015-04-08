@@ -14,6 +14,7 @@ It provides you with a one, or two-way syncronized (not tested) copy of the VFS 
 ## Pre-requisites:
 1. On OSX: ``brew install md5sha1sum wget`` or ``sudo port install md5sha1sum wget``
 2. Install the official Node.JS package from here: https://nodejs.org/download/
+3. Upload ``php/prepare.php`` to ``site-root``
 
 ## Getting started:
 1. Make sure that your Emergence instance is in sync with a GIT branch
