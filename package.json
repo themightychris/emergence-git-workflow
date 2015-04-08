@@ -1,0 +1,9 @@
+{
+  "name": "emergence-git-workflow",
+  "description": "A way to work the Emergence VFS using a local working directory and Git",
+  "version": "0.0.1",
+  "dependencies": {
+    "request": "^2.55.0",
+    "restler": "^3.2.2"
+  }
+}
