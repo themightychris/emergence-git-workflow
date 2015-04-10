@@ -16,7 +16,7 @@ It provides you with a one, or two-way syncronized (not tested) copy of the VFS 
 2. Install the official Node.JS package from here: https://nodejs.org/download/
 3. ``npm install`` from this repo's directory
 4. ``sudo npm install -g jmealo:node-rsyncer``
-5. Upload ``php/prepare.php`` to ``site-root``
+5. Upload ``php/export-tree.php`` to ``site-root``
 6. Upload ``php/import-tree.php`` to ``site-root``
 
 ## Getting started:
@@ -24,7 +24,7 @@ It provides you with a one, or two-way syncronized (not tested) copy of the VFS 
 2. Make sure that your Emergence instance is in sync with a GIT branch
 3. Check out a local working copy (clone) of that GIT branch on your dev machine
 4. cd into the local working directory
-5. ``wget -qO- http://$emergence_username:$emergence_password@$emergence_host/prepare | tar xvz --keep-newer-files``
+5. ``wget -qO- http://$emergence_username:$emergence_password@$emergence_host/export-tree | tar xvz --keep-newer-files``
 6. The VFS has now been extracted over your local working copy. Since they should be the same right now, this shouldn't result in any changes.
 7. Copy scripts/update.sh from this repo into your working directory
 8. Edit the variables in update.sh to point to your emergence instance
