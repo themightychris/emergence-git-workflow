@@ -1,0 +1,26 @@
+{
+  "paths": {
+    "src": "<< your local working copy >>",
+    "dst": "<< your remote export directory (/tmp/site-handle) as an SCP/SSH destination >>"
+  },
+  "args": [
+    "--exclude .gitignore",
+    "--exclude .git",
+    "--exclude .vfs_checksums",
+    "--exclude .current_checksums"
+  ],
+  "args": [
+    "--exclude '.gitignore'",
+    "--exclude '.git'",
+    "--exclude '.*_checksums'",
+    "--exclude '.idea'",
+    "--exclude '*.emergence*'",
+    "--exclude 'sencha-build'",
+    "-a",
+    "-e \"ssh -T -c arcfour -o Compression=no -x\""
+  ],
+  "recursive": true,
+  "delete": false,
+  "links": true,
+  "postsync": "curl http://<< webdav username >>:<< webdav password >>@<< webdav hostname >>/import-tree && afplay /System/Library/Sounds/Submarine.aiff"
+}
