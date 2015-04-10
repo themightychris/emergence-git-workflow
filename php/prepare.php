@@ -52,7 +52,7 @@ function exportTree($exportDir) {
         $handle = $collection['handle'];
 
         $destDir = $exportDir . '/' . $handle;
-        \Emergence_FS::exportTree($handle, $destDir);
+        \Emergence_FS::exportTree($handle, $destDir, ['dataPath' => false]);
     }
 }
 
