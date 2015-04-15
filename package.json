@@ -3,6 +3,11 @@
   "description": "A way to work the Emergence VFS using a local working directory and Git",
   "version": "0.0.1",
   "dependencies": {
+    "agentkeepalive": "^2.0.0",
+    "async": "^0.9.0",
+    "colors": "^1.0.3",
+    "fsevents": "^0.3.5",
+    "minimatch": "^2.0.4",
     "request": "^2.55.0",
     "restler": "^3.2.2"
   }
