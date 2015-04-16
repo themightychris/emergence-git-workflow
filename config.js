@@ -2,6 +2,7 @@
 
 var inquirer       = require("inquirer"),
     fs             = require('fs'),
+    exec           = require('child_process').exec,
     ignorePatterns = {
         required: [
             "**/.emergence/*",
@@ -149,7 +150,31 @@ var questions = [
         when:    function (answers) {
             return answers.overwriteConfig === false;
         }
-    }
+    },
+    {
+        type:    "confirm",
+        default: true,
+        name:    "uploadTreeScripts",
+        message: "Should I upload import-tree.php and export-tree.php to your site-root?"
+    },
+    {
+        type:    "confirm",
+        name:    "exportVFS",
+        default: false,
+        message: "Should I export the VFS to your local working directory?",
+        when:    function (answers) {
+            return answers.uploadTreeScripts;
+        }
+    },
+    {
+        type:    "confirm",
+        name:    "updateGit",
+        default: false,
+        message: "Should I update your .gitignore file to exclude unchanged files from your VFS export?",
+        when:    function (answers) {
+            return answers.exportVFS;
+        }
+    },
 ];
 
 function generateConfig(answers) {
@@ -177,6 +202,21 @@ function generateConfig(answers) {
     return returnVal;
 }
 
+function curlUpload(host, src, dst, username, password) {
+    var curl = "curl --digest --anyauth" +
+        " --user '" + username + ':' + password + "'" +
+        " -T " + src +
+        " -L " + host + '/develop/' + dst;
+
+    exec(curl, function(err) {
+        if (err) {
+            throw err;
+        } else {
+            console.log(src + ' uploaded to ' + dst);
+        }
+    });
+}
+
 inquirer.prompt(questions, function (answers) {
     fs.writeFile(answers.configPath, JSON.stringify(generateConfig(answers), null, "  "), function (err) {
         if (err) {
@@ -185,4 +225,32 @@ inquirer.prompt(questions, function (answers) {
 
         console.log('Config file written to: ' + answers.configPath);
     });
+
+    if (answers.uploadTreeScripts) {
+        var host = (answers.useSSL ? 'https' : 'http') + '://' + answers.hostname;
+        curlUpload(host, __dirname + '/php/import-tree.php', 'site-root/import-tree.php', answers.username, answers.password);
+        curlUpload(host, __dirname + '/php/export-tree.php', 'site-root/export-tree.php', answers.username, answers.password);
+
+        if (answers.exportVFS) {
+            console.log('Exporting VFS to: ' + answers.localDir + '(this could take a few minutes)...');
+
+            var wget = 'wget -qO- ' + (answers.useSSL ? 'https' : 'http') + '://' + answers.username + ':' + answers.password + '@' +  answers.hostname + '/export-tree | tar xvz --keep-newer-files --warning=none -C ' + answers.localDir;
+
+            exec(wget, function(err) {
+                // TODO: Add error handling
+                if (err === 'TODO: This always returns an error code when it runs a second time') {
+                    throw err;
+                } else {
+                    console.log('VFS exported to: ' + answers.localDir);
+
+                    if(answers.updateGit) {
+                        exec('emergence-update', { cwd: answers.localDir }, function(err) {
+                           // TODO: Add error handling
+                            console.log('.gitignore updated');
+                        });
+                    }
+                }
+            });
+        }
+    }
 });
