@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 var fsevents        = require('fsevents'),
     fs              = require('fs'),
     extend          = require('util')._extend,

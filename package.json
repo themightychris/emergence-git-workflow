@@ -1,7 +1,8 @@
 {
   "name": "emergence-git-workflow",
+  "preferGlobal": true,
   "description": "A way to work the Emergence VFS using a local working directory and Git",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "dependencies": {
     "agentkeepalive": "^2.0.0",
     "async": "^0.9.0",
@@ -11,5 +12,9 @@
     "minimatch": "^2.0.4",
     "request": "^2.55.0",
     "restler": "^3.2.2"
+  },
+  "bin": {
+    "emergence-config": "./config.js",
+    "emergence-watcher": "./watcher.js"
   }
 }

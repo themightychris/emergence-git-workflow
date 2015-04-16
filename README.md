@@ -14,8 +14,7 @@ It provides you with a one, or two-way syncronized (not tested) copy of the VFS 
 ## Pre-requisites:
 1. On OSX: ``brew install md5sha1sum wget`` or ``sudo port install md5sha1sum wget``
 2. Install the official Node.JS package from here: https://nodejs.org/download/
-3. ``npm install`` from this repo's directory
-4. ``sudo npm install -g jmealo:node-rsyncer``
+3. ``sudo npm install -g`` from this repo's directory
 5. Upload ``php/export-tree.php`` to ``site-root``
 6. Upload ``php/import-tree.php`` to ``site-root``
 
@@ -30,11 +29,5 @@ It provides you with a one, or two-way syncronized (not tested) copy of the VFS 
 8. Edit the variables in update.sh to point to your emergence instance
 9. Run ``./update.sh`` from inside your working directory
 10. Run ``git status`` you should only see update.sh as a modified file, if anything else has changed something is out of sync.
-11. Set up a file watcher to run update.sh whenever a file changes (see below for phpstorm)
-12. You must choose a transport method, each has pros and cons, choose wisely:
-
-| Transport | Attempted | Tested | Pros                                                                                                       | Cons                                                                                                          |
-|-----------|-----------|--------|------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
-| webdav    | Yes       | No     | * Removes need to "import tree" on the remote server                                                       | * Cannot batch files Slow Sends entire file, not a delta Requires server-side handling of "garbage IDE files" |
-| ssh       |           |        | * Widely supported in IDEs Hooks into your IDEs save functionality allowing for build tools to run locally | * Cannot batch files Sends entire file, not a delta                                                           |
-| rsync     | Yes       | Yes    | * Supported in some IDEs with plugins Very efficient use of bandwidth and CPU (uses deltas when possible)  | * Unaware of IDE "garbage files" Possible issues with thrashing when multiple changes, or "Safe writes" occur |
+11. Run ``emergence-config`` to generate a configuration file
+12. Run ``emergence-watcher`` to watch a directory

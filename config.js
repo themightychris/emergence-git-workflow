@@ -1,4 +1,5 @@
-"use strict";
+#!/usr/bin/env node
+
 var inquirer       = require("inquirer"),
     fs             = require('fs'),
     ignorePatterns = {
@@ -169,7 +170,7 @@ function generateConfig(answers) {
         }
     };
 
-    returnVal.ignore.global = answers.ignore.reduce(function(ignore, ignorePattern) {
+    returnVal.ignore.global = answers.ignore.reduce(function (ignore, ignorePattern) {
         return ignore.concat(ignorePatterns[ignorePattern]);
     }, ignorePatterns.required) || ignorePatterns.required;
 
@@ -177,7 +178,7 @@ function generateConfig(answers) {
 }
 
 inquirer.prompt(questions, function (answers) {
-    fs.writeFile(answers.configPath, JSON.stringify(generateConfig(answers), null, "  "), function(err) {
+    fs.writeFile(answers.configPath, JSON.stringify(generateConfig(answers), null, "  "), function (err) {
         if (err) {
             throw err;
         }
