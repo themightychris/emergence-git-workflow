@@ -6,7 +6,7 @@ var fsevents        = require('fsevents'),
     http            = require('http'),
     Agent           = require('agentkeepalive'),
     getRelativePath = require('path').relative,
-    Minimatch       = require('minimatch').Minimatch,
+    RelPathList     = require('pathspec').RelPathList,
     async           = require('async'),
     colors          = require('colors/safe'),
 
@@ -32,7 +32,7 @@ var fsevents        = require('fsevents'),
         }
     },
 
-    ignoreRe        = {},
+    ignoreList      = {},
     watcher,
     movedOut        = null,
     DEBUG           = true,
@@ -47,9 +47,7 @@ if (fs.existsSync(config.localDir + '/config.json')) {
 
 // Build regular expressions from globs
 for (var ignoreType in config.ignore) {
-    ignoreRe[ignoreType] = new RegExp(config.ignore[ignoreType].map(function (glob) {
-        return new Minimatch(glob).makeRe().source;
-    }).join('|'), 'm');
+    ignoreList[ignoreType] = RelPathList.parse(config.ignore[ignoreType]);
 }
 
 function playSound(sound) {
@@ -67,7 +65,7 @@ function shouldIgnore(event, path) {
     }
 
     for (var x = 0, len = events.length; x < len; x++) {
-        if (ignoreRe[events[x]] && ignoreRe[events[x]].test(path)) {
+        if (ignoreList[events[x]] && ignoreList[events[x]].matches(path)) {
             return true;
         }
     }
