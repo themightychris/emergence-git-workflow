@@ -41,8 +41,8 @@ var fsevents        = require('fsevents'),
 DEBUG = !config.debug;
 
 // Merge default configuration options with config.json if present
-if (fs.existsSync('./config.json')) {
-    config = extend(config, require('./config.json'));
+if (fs.existsSync(config.localDir + '/config.json')) {
+    config = extend(config, JSON.parse(fs.readFileSync(config.localDir + '/config.json')));
 }
 
 // Build regular expressions from globs
@@ -154,7 +154,7 @@ function webDavRequest(verb, destination, file, callback) {
 watcher.on('change', function (path, info) {
     var verb, src, dst, ignore,
         isDir = info.type === 'directory',
-        relPath = getRelativePath(__dirname, path);
+        relPath = getRelativePath(config.localDir, path);
 
     DEBUG || console.log(info);
 
@@ -189,7 +189,7 @@ watcher.on('change', function (path, info) {
             break;
         case 'moved-in':
             if (movedOut) {
-                src = getRelativePath(__dirname, movedOut);
+                src = getRelativePath(config.localDir, movedOut);
                 dst = relPath;
                 movedOut = null;
             }
