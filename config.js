@@ -5,14 +5,14 @@ var inquirer       = require("inquirer"),
     exec           = require('child_process').exec,
     ignorePatterns = {
         required: [
-            ".emergence/",
+            ".emergence",
             ".vfs_checksums"
         ],
 
         git: [
             ".gitignore",
             ".current_checksums",
-            ".git/"
+            ".git"
         ],
 
         osx: [
@@ -31,7 +31,7 @@ var inquirer       = require("inquirer"),
 
         idea: [
             "*.iml",
-            ".idea/",
+            ".idea",
             "*.ipr",
             "*.iws",
             ".idea_modules",
@@ -42,12 +42,12 @@ var inquirer       = require("inquirer"),
         ],
 
         netbeans: [
-            "nbproject/private/",
-            "nbbuild/",
-            "nbdist/",
+            "nbproject/private",
+            "nbbuild",
+            "nbdist",
             "nbactions.xml",
             "nb-configuration.xml",
-            ".nb-gradle/"
+            ".nb-gradle"
         ]
     };
 
