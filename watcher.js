@@ -33,16 +33,15 @@ var fsevents        = require('fsevents'),
     },
 
     ignoreList      = {},
-    watcher,
     movedOut        = null,
-    DEBUG           = true,
+    DEBUG           = false,
     drainSound = null;
 
-DEBUG = !config.debug;
 
 // Merge default configuration options with config.json if present
 if (fs.existsSync(config.localDir + '/config.json')) {
     config = extend(config, JSON.parse(fs.readFileSync(config.localDir + '/config.json')));
+    DEBUG = !!config.debug;
 }
 
 // Build regular expressions from globs
@@ -78,7 +77,13 @@ function shouldIgnore(event, path) {
     return false;
 }
 
-watcher = fsevents(config.localDir);
+var watcher = fsevents(config.localDir);
+
+var watcherLogStream;
+
+if (config.watcherLog) {
+    watcherLogStream = fs.createWriteStream(config.watcherLog, {flags: 'a'});
+}
 
 var keepaliveAgent = new Agent({
     maxSockets:       100,
@@ -154,7 +159,20 @@ watcher.on('change', function (path, info) {
         isDir = info.type === 'directory',
         relPath = getRelativePath(config.localDir, path);
 
-    DEBUG || console.log(info);
+    if (DEBUG) {
+        console.log(info);
+    }
+
+    if (watcherLogStream) {
+        watcherLogStream.write(
+            Date.now() + '\t' +
+            info.id + '\t' +
+            info.event + '\t' +
+            info.type + '\t' +
+            Object.keys(info.changes).filter(function(key) { return info.changes[key]; }) + '\t' +
+            path + '\n'
+        );
+    }
 
     // Add trailing slash to directories
     if (isDir) {
@@ -165,7 +183,9 @@ watcher.on('change', function (path, info) {
             // HACK: fsevent passes an unknown event for directory chowning
             if (info.changes.inode || info.changes.access || info.changes.xattrs || info.changes.finder) {
                 console.warn('Ignoring chown/chmod to: ' + path);
-                DEBUG || console.log(info);
+                if (DEBUG) {
+                    console.log(info);
+                }
                 return;
             }
             info.event = 'created';
