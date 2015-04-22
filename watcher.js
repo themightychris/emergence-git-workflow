@@ -33,7 +33,6 @@ var fsevents        = require('fsevents'),
     },
 
     ignoreList      = {},
-    watcher,
     movedOut        = null,
     DEBUG           = false,
     drainSound = null;
@@ -78,7 +77,13 @@ function shouldIgnore(event, path) {
     return false;
 }
 
-watcher = fsevents(config.localDir);
+var watcher = fsevents(config.localDir);
+
+var watcherLogStream;
+
+if (config.watcherLog) {
+    watcherLogStream = fs.createWriteStream(config.watcherLog, {flags: 'a'});
+}
 
 var keepaliveAgent = new Agent({
     maxSockets:       100,
@@ -156,6 +161,17 @@ watcher.on('change', function (path, info) {
 
     if (DEBUG) {
         console.log(info);
+    }
+
+    if (watcherLogStream) {
+        watcherLogStream.write(
+            Date.now() + '\t' +
+            info.id + '\t' +
+            info.event + '\t' +
+            info.type + '\t' +
+            Object.keys(info.changes).filter(function(key) { return info.changes[key]; }) + '\t' +
+            path + '\n'
+        );
     }
 
     // Add trailing slash to directories
