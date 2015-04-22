@@ -159,19 +159,17 @@ watcher.on('change', function (path, info) {
         isDir = info.type === 'directory',
         relPath = getRelativePath(config.localDir, path);
 
-    if (DEBUG) {
-        console.log(info);
-    }
+    DEBUG && console.error(info);
 
     if (watcherLogStream) {
-        watcherLogStream.write(
-            Date.now() + '\t' +
-            info.id + '\t' +
-            info.event + '\t' +
-            info.type + '\t' +
-            Object.keys(info.changes).filter(function(key) { return info.changes[key]; }) + '\t' +
-            path + '\n'
-        );
+        watcherLogStream.write([
+            Date.now(),
+            info.id,
+            info.event,
+            info.type,
+            Object.keys(info.changes).filter(function(key) { return info.changes[key]; }),
+            path
+        ].join('\t') + '\n');
     }
 
     // Add trailing slash to directories
@@ -183,9 +181,7 @@ watcher.on('change', function (path, info) {
             // HACK: fsevent passes an unknown event for directory chowning
             if (info.changes.inode || info.changes.access || info.changes.xattrs || info.changes.finder) {
                 console.warn('Ignoring chown/chmod to: ' + path);
-                if (DEBUG) {
-                    console.log(info);
-                }
+                DEBUG && console.log(info);
                 return;
             }
             info.event = 'created';
