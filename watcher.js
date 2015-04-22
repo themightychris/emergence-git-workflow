@@ -35,14 +35,14 @@ var fsevents        = require('fsevents'),
     ignoreList      = {},
     watcher,
     movedOut        = null,
-    DEBUG           = true,
+    DEBUG           = false,
     drainSound = null;
 
-DEBUG = !config.debug;
 
 // Merge default configuration options with config.json if present
 if (fs.existsSync(config.localDir + '/config.json')) {
     config = extend(config, JSON.parse(fs.readFileSync(config.localDir + '/config.json')));
+    DEBUG = !!config.debug;
 }
 
 // Build regular expressions from globs
@@ -154,7 +154,9 @@ watcher.on('change', function (path, info) {
         isDir = info.type === 'directory',
         relPath = getRelativePath(config.localDir, path);
 
-    DEBUG || console.log(info);
+    if (DEBUG) {
+        console.log(info);
+    }
 
     // Add trailing slash to directories
     if (isDir) {
@@ -165,7 +167,9 @@ watcher.on('change', function (path, info) {
             // HACK: fsevent passes an unknown event for directory chowning
             if (info.changes.inode || info.changes.access || info.changes.xattrs || info.changes.finder) {
                 console.warn('Ignoring chown/chmod to: ' + path);
-                DEBUG || console.log(info);
+                if (DEBUG) {
+                    console.log(info);
+                }
                 return;
             }
             info.event = 'created';
