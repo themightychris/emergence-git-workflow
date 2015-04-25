@@ -9,6 +9,7 @@ var fsevents        = require('fsevents'),
     RelPathList     = require('pathspec').RelPathList,
     async           = require('async'),
     colors          = require('colors/safe'),
+    notifier        = require('node-notifier'),
 
     config          = {
         debug:      false,
@@ -250,3 +251,13 @@ watcher.on('change', function (path, info) {
 });
 
 watcher.start();
+
+// TODO: This is an anti-pattern, but ok for what we're using it for
+process.on('uncaughtException', function(err) {
+    require('child_process').exec("say -v Boing \"I'm sorry Dave, I'm afraid I can't do that\"");
+
+    notifier.notify({
+        'title': 'Emergence-watcher',
+        'message': 'The watcher has crashed with an uncaught exception:\n' + err
+    });
+});
