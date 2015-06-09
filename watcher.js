@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
-var fsevents        = require('fsevents'),
+var emergence       = require('./lib/emergence'),
+    fsevents        = require('fsevents'),
     fs              = require('fs'),
     extend          = require('util')._extend,
-    http            = require('http'),
-    Agent           = require('agentkeepalive'),
     getRelativePath = require('path').relative,
     RelPathList     = require('pathspec').RelPathList,
     async           = require('async'),
@@ -16,7 +15,7 @@ var fsevents        = require('fsevents'),
         logIgnored: false,
         localDir:   '.',
 
-        webdav: {
+        site: {
             ssl: false
         },
 
@@ -39,10 +38,12 @@ var fsevents        = require('fsevents'),
     drainSound = null;
 
 
-// Merge default configuration options with config.json if present
-if (fs.existsSync(process.cwd() + '/config.json')) {
-    config = extend(config, require(process.cwd() + '/config.json'));
+// Merge default configuration options with .emergence-workspace.json if present
+if (fs.existsSync(process.cwd() + '/.emergence-workspace.json')) {
+    config = extend(config, require(process.cwd() + '/.emergence-workspace.json'));
 }
+
+var site = new emergence.Site(config.site);
 
 // Build regular expressions from globs
 for (var ignoreType in config.ignore) {
@@ -84,12 +85,6 @@ if (config.watcherLog) {
     watcherLogStream = fs.createWriteStream(config.watcherLog, {flags: 'a'});
 }
 
-var keepaliveAgent = new Agent({
-    maxSockets:       100,
-    maxFreeSockets:   10,
-    timeout:          120000,
-    keepAliveTimeout: 60000
-});
 
 var q = async.queue(function (task, callback) {
     webDavRequest(task.verb, task.dst, task.src, function(err) {
@@ -119,32 +114,20 @@ function webDavRequest(verb, destination, file, callback) {
         }
     }
 
-    request = http.request({
-        host:    config.webdav.hostname,
-        port:    config.webdav.ssl ? 443 : 80,
-        method:  verb,
-        path:    config.webdav.path + '/' + destination,
-        headers: headers,
-        agent:   keepaliveAgent,
-        auth:    config.webdav.username + ':' + config.webdav.password
-    });
-
-    request.on("response", function (res) {
+    request = site.request({
+        method: verb,
+        url:    '/develop/' + destination,
+        headers: headers
+    }, function(error, response, body) {
         // Ignore when a delete fails due to a 404
-        if (res.statusCode >= 400 && !(verb === 'DELETE' && res.statusCode == 404) && // delete a file that doesn't exist
-            !(verb === 'MKCOL' && res.statusCode == 405)  // make a directory that already exists
+        if (response.statusCode >= 400 && !(verb === 'DELETE' && response.statusCode == 404) && // delete a file that doesn't exist
+            !(verb === 'MKCOL' && response.statusCode == 405)  // make a directory that already exists
         ) {
-            res.on('end', function () {
-                callback(new Error("HTTP " + verb + " failed with code " + res.statusCode + " for " + request.path));
-            });
+            callback(new Error("HTTP " + verb + " failed with code " + response.statusCode + " for " + request.path));
         } else {
-            res.on('end', callback);
+            callback();
         }
-
-        res.resume();
     });
-
-    request.on('error', callback);
 
     if (fileStream) {
         fileStream.pipe(request);
@@ -237,7 +220,7 @@ watcher.on('change', function (path, info) {
                 verb: verb, dst: dst, src: src, cb: function (err) {
                     if (err) {
                         playSound(config.sound.error);
-                        console.log(colors.red('[FAILED ] ') + verb + ': ' + relPath + (dst ? ' -> ' + dst : '') + '(' + err + ')');
+                        console.log(colors.red('[FAILED] ') + verb + ': ' + relPath + (dst != relPath ? ' -> ' + dst : '') + ' (' + err + ')');
                         return;
                     }
 
