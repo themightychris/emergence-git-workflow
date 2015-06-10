@@ -2,15 +2,20 @@
 
 var emergence       = require('./lib/emergence'),
     fsevents        = require('fsevents'),
-    fs              = require('fs'),
+    fs              = require('graceful-fs'),
+    path            = require('path'),
     extend          = require('util')._extend,
-    getRelativePath = require('path').relative,
     RelPathList     = require('pathspec').RelPathList,
     async           = require('async'),
     colors          = require('colors/safe'),
     notifier        = require('node-notifier'),
+    _               = require('underscore'),
+    inquirer        = require('inquirer'),
+    mkdirp          = require('mkdirp'),
+    async           = require('async'),
 
-    configPath = process.cwd() + '/.emergence-workspace.json',
+    workingPath = process.cwd(),
+    configPath = workingPath + '/.emergence-workspace.json',
     config          = {
         debug:      false,
         logIgnored: false,
@@ -110,7 +115,7 @@ function login(callback) {
             // write new token to workspace config
             loadedConfig.site.token = sessionData.Handle;
 
-            console.log('Login successful, writing new token to config: ' + configPath + '...');
+            console.log('Login successful, writing new token ' + sessionData.Handle + ' to config: ' + configPath + '...');
             fs.writeFile(configPath, JSON.stringify(loadedConfig, null, '  '), callback);
         }
     });
@@ -167,10 +172,10 @@ function webDavRequest(verb, destination, file, callback) {
     }
 }
 
-watcher.on('change', function (path, info) {
+watcher.on('change', function (filePath, info) {
     var verb, src, dst, ignore,
         isDir = info.type === 'directory',
-        relPath = getRelativePath(config.localDir, path);
+        relPath = path.relative(config.localDir, filePath);
 
     DEBUG && console.error(info);
 
@@ -181,19 +186,19 @@ watcher.on('change', function (path, info) {
             info.event,
             info.type,
             Object.keys(info.changes).filter(function(key) { return info.changes[key]; }),
-            path
+            filePath
         ].join('\t') + '\n');
     }
 
     // Add trailing slash to directories
     if (isDir) {
-        path = path + '/';
-        info.path = path;
+        filePath = filePath + '/';
+        info.path = filePath;
         // HACK: fsevent is passing an unknown event for directory creation (deleted works)
         if (info.event === 'unknown') {
             // HACK: fsevent passes an unknown event for directory chowning
             if (info.changes.inode || info.changes.access || info.changes.xattrs || info.changes.finder) {
-                console.warn('Ignoring chown/chmod to: ' + path);
+                console.warn('Ignoring chown/chmod to: ' + filePath);
                 DEBUG && console.log(info);
                 return;
             }
@@ -208,7 +213,9 @@ watcher.on('change', function (path, info) {
         case 'modified':
         case 'created':
             verb = isDir ? 'MKCOL' : 'PUT';
-            src = path;
+            src = filePath;
+            
+            // TODO: ignore if matches cached remote hash?
             break;
         case 'deleted':
             verb = 'DELETE';
@@ -217,16 +224,16 @@ watcher.on('change', function (path, info) {
         case 'moved-in':
             if (movedOut) {
                 dst = relPath;
-                src = relPath = getRelativePath(config.localDir, movedOut);
+                src = relPath = path.relative(config.localDir, movedOut);
                 movedOut = null;
                 verb = 'MOVE';
             } else {
                 verb = 'PUT';
-                src = path;
+                src = filePath;
             }
             break;
         case 'moved-out':
-            movedOut = path;
+            movedOut = filePath;
             break;
     }
 
@@ -237,8 +244,8 @@ watcher.on('change', function (path, info) {
         }
 
         if (verb === 'MKCOL' || verb === 'DELETE') {
-            path = relPath;
-            dst = path;
+            filePath = relPath;
+            dst = filePath;
             src = null;
         }
 
@@ -267,8 +274,101 @@ watcher.on('change', function (path, info) {
 
 });
 
+function checkIntegrity(callbackCheckIntegrity) {
+    console.log('Fetching remote file index...');
+    site.request.get('/emergence', function(error, response, body) {
+        console.log('Parsing remote file index...');
+        var remoteTree = JSON.parse(body),
+            remoteFilePaths = Object.keys(remoteTree.files),
+            localRootCollections = fs.readdirSync('.').filter(function(localRootPath) {
+                return localRootPath != '.git' && fs.lstatSync(localRootPath).isDirectory();
+            });
+        
+        // trim remote files and ignored files
+        // TODO: filter remote files at server side in /emergence call
+        remoteFilePaths = remoteFilePaths.filter(function(remoteFilePath) {
+            return remoteTree.files[remoteFilePath].Site == 'Local' && !shouldIgnore('sync', remoteFilePath);
+        });
+        console.log('Enumerated ' + remoteFilePaths.length + ' remote files.');
+
+        require('child_process').execFile('find', localRootCollections.concat(['-type', 'f']), function(err, stdout, stderr) {
+            var localFilePaths = stdout.trim().split('\n').filter(function(localFilePath) {
+                    return !shouldIgnore('sync', localFilePath);
+                }),
+                needsUpload = _.difference(localFilePaths, remoteFilePaths),
+                needsDownload = _.difference(remoteFilePaths, localFilePaths),
+                needsResolve = []; // TODO: detect different
+
+            if (needsUpload.length + needsDownload.length + needsResolve.length) {
+                console.log(
+                    needsUpload.length + ' new files need to be uploaded, ' +
+                    needsDownload.length + ' new files need to be downloaded, ' +
+                    needsResolve.length + ' conflicting files need to be resolved'
+                );
+
+                // TODO: confirm each batch of operations separately?
+                inquirer.prompt([{
+                    type: 'confirm',
+                    default: false,
+                    name: 'sync',
+                    message: 'Syncronize now?'
+                }], function(answers) {
+                    if (!answers.sync) {
+                        callbackCheckIntegrity(new Error('Cannot start watcher, trees not synchronized.'));
+                        return;
+                    }
+
+                    async.each(needsDownload, function(filePath, callbackDownloadFile) {
+                        var fileDir = path.dirname(filePath);
+
+                        // ensure parent directory exists
+                        if (!fs.existsSync(fileDir)) {
+                            mkdirp.sync(fileDir);
+                        }
+
+                        // stream file
+                        site.request({
+                            url: '/develop/' + filePath,
+                            headers: {
+                                Accept: '*/*'
+                            }
+                        }).pipe(fs.createWriteStream(filePath).on('finish', function(error) {
+                            if (!error) {
+                                console.log('Downloaded ' + filePath);
+                            }
+
+                            callbackDownloadFile(error);
+                        }));
+                    }, function(error) {
+                        if (!error) {
+                            console.log('Finished downloading all files.');
+                        }
+
+                        // defer for hardcoded 500ms because even using finish event above, starting watcher immediately after sync seems to catch the last file
+                        setTimeout(function() {
+                            callbackCheckIntegrity(error);
+                        }, 500);
+                    });
+                });
+                
+                // TODO: handle needsUpload?
+            } else {
+                callbackCheckIntegrity();
+            }
+        });
+    });
+}
+
 function startWatching() {
-    watcher.start();
+    checkIntegrity(function(error) {
+        if (error) {
+            throw error;
+        }
+
+        console.log('Starting watcher...');
+        watcher.start();
+        console.log('Watcher started.');
+    });
 }
 
 // verify session before watching
@@ -303,11 +403,11 @@ if (!config.site.token) {
 }
 
 // TODO: This is an anti-pattern, but ok for what we're using it for
-process.on('uncaughtException', function(err) {
-    require('child_process').exec("say -v Boing \"I'm sorry Dave, I'm afraid I can't do that\"");
-
-    notifier.notify({
-        'title': 'Emergence-watcher',
-        'message': 'The watcher has crashed with an uncaught exception:\n' + err
-    });
-});
+//process.on('uncaughtException', function(err) {
+//    require('child_process').exec("say -v Boing \"I'm sorry Dave, I'm afraid I can't do that\"");
+//
+//    notifier.notify({
+//        'title': 'Emergence-watcher',
+//        'message': 'The watcher has crashed with an uncaught exception:\n' + err
+//    });
+//});
