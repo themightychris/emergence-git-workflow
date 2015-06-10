@@ -221,7 +221,6 @@ watcher.on('change', function (path, info) {
                 movedOut = null;
                 verb = 'MOVE';
             } else {
-                console.log(colors.yellow('[WARNING] moved-in event caught without moved-out pending, doing put for ' + relPath));
                 verb = 'PUT';
                 src = path;
             }
