@@ -216,8 +216,8 @@ watcher.on('change', function (path, info) {
             break;
         case 'moved-in':
             if (movedOut) {
-                src = getRelativePath(config.localDir, movedOut);
                 dst = relPath;
+                src = relPath = getRelativePath(config.localDir, movedOut);
                 movedOut = null;
             }
             verb = 'MOVE';
@@ -241,7 +241,7 @@ watcher.on('change', function (path, info) {
 
         // File was ignored in either global or watch
         if (ignore) {
-            console.log((ignore ? colors.yellow('[IGNORED] ') : '') + verb + ': ' + relPath + (dst ? ' -> ' + dst : ''));
+            console.log((ignore ? colors.yellow('[IGNORED] ') : '') + verb + ': ' + relPath + (dst != relPath ? ' -> ' + dst : ''));
             return;
         }
 
@@ -256,7 +256,7 @@ watcher.on('change', function (path, info) {
                     }
 
                     drainSound = (drainSound === null) ? config.sound.success : drainSound;
-                    console.log(colors.green('[SUCCESS] ') + verb + ': ' + relPath + (dst ? ' -> ' + dst : ''));
+                    console.log(colors.green('[SUCCESS] ') + verb + ': ' + relPath + (dst != relPath ? ' -> ' + dst : ''));
                 }
             });
         }
