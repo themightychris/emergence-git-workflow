@@ -123,7 +123,7 @@ function webDavRequest(verb, destination, file, callback) {
 
     if (file) {
         if (/move/i.test(verb)) {
-            headers['Destination'] = config.webdav.path + '/' + destination;
+            headers['Destination'] = '/develop/' + destination;
             destination = file;
         } else {
             fileStream = fs.createReadStream(file);
