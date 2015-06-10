@@ -10,6 +10,7 @@ var emergence       = require('./lib/emergence'),
     colors          = require('colors/safe'),
     notifier        = require('node-notifier'),
 
+    configPath = process.cwd() + '/.emergence-workspace.json',
     config          = {
         debug:      false,
         logIgnored: false,
@@ -35,12 +36,14 @@ var emergence       = require('./lib/emergence'),
     ignoreList      = {},
     movedOut        = null,
     DEBUG           = false,
-    drainSound = null;
+    drainSound = null,
+    loadedConfig = null;
 
 
 // Merge default configuration options with .emergence-workspace.json if present
-if (fs.existsSync(process.cwd() + '/.emergence-workspace.json')) {
-    config = extend(config, require(process.cwd() + '/.emergence-workspace.json'));
+if (fs.existsSync(configPath)) {
+    loadedConfig = require(configPath);
+    config = extend(config, loadedConfig);
 }
 
 var site = new emergence.Site(config.site);
@@ -99,6 +102,20 @@ q.drain = function() {
     }
 };
 
+function login(callback) {
+    site.promptLogin(function(error, sessionData) {
+        if (error) {
+            callback(new Error('Login failed'));
+        } else {
+            // write new token to workspace config
+            loadedConfig.site.token = sessionData.Handle;
+
+            console.log('Login successful, writing new token to config: ' + configPath + '...');
+            fs.writeFile(configPath, JSON.stringify(loadedConfig, null, '  '), callback);
+        }
+    });
+}
+
 function webDavRequest(verb, destination, file, callback) {
     var fileStream,
         request,
@@ -119,8 +136,22 @@ function webDavRequest(verb, destination, file, callback) {
         url:    '/develop/' + destination,
         headers: headers
     }, function(error, response, body) {
-        // Ignore when a delete fails due to a 404
-        if (response.statusCode >= 400 && !(verb === 'DELETE' && response.statusCode == 404) && // delete a file that doesn't exist
+        // retry after login for a 401
+        if (response.statusCode == 401) {
+            login(function(error) {
+                if (error) {
+                    callback(error);
+                    return;
+                }
+ 
+                // retry request with original callback
+                console.log('Config written, retrying request...');
+                webDavRequest(verb, destination, file, callback);
+            });
+        // consider operation failed if status >= 400, with some exceptions..
+        } else if (
+            response.statusCode >= 400 &&
+            !(verb === 'DELETE' && response.statusCode == 404) && // delete a file that doesn't exist
             !(verb === 'MKCOL' && response.statusCode == 405)  // make a directory that already exists
         ) {
             callback(new Error("HTTP " + verb + " failed with code " + response.statusCode + " for " + request.path));
@@ -233,7 +264,40 @@ watcher.on('change', function (path, info) {
 
 });
 
-watcher.start();
+function startWatching() {
+    watcher.start();
+}
+
+// verify session before watching
+if (!config.site.token) {
+    // no token, definitely need to login
+    login(function(error) {
+        if (error) {
+            throw error;
+        }
+
+        startWatching();
+    });
+} else {
+    // test authentication
+    site.request.get('/develop', function(error, response, body) {
+        if (response.statusCode == 200) {
+            startWatching();
+        } else if (response.statusCode == 401) {
+            playSound(config.sound.error);
+            console.log('Token expired, login required');
+            login(function(error) {
+                if (error) {
+                    throw error;
+                }
+        
+                startWatching();
+            });
+        } else {
+            throw new Error('Failed to connect to site, statusCode='+response.statusCode);
+        }
+    });
+}
 
 // TODO: This is an anti-pattern, but ok for what we're using it for
 process.on('uncaughtException', function(err) {

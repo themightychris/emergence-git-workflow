@@ -66,20 +66,6 @@ var questions = [
         default: false
     },
     {
-        type:    "input",
-        name:    "username",
-        message: "Emergence Developer Username:",
-        default: process.env.USER
-    },
-    {
-        type:     "password",
-        name:     "password",
-        message:  "Emergence Developer Password:",
-        validate: function (password) {
-            return password.length >= 6;
-        }
-    },
-    {
         type:     "input",
         name:     "localDir",
         message:  "Local working directory:",
@@ -147,15 +133,14 @@ var questions = [
     }
 ];
 
-function generateConfig(answers, sessionData) {
+function generateConfig(answers) {
 
     var config = {
         "localDir": answers.localDir,
 
         "site": {
-            "ssl": answers.useSSL,
-            "hostname": answers.hostname,
-            "token": sessionData && sessionData.Handle || null
+            "useSSL": answers.useSSL,
+            "hostname": answers.hostname
         },
 
         "ignore": {
@@ -176,24 +161,12 @@ inquirer.prompt(questions, function (answers) {
         return;
     }
 
-    var site = new emergence.Site({
-        hostname: answers.hostname,
-        useSSL: answers.useSSL
-    });
-
-    console.log('Logging in to site...');
-    site.login(answers.username, answers.password, function(error, sessionData) {
+    console.log('Writing config to: ' + answers.configPath + '...');
+    fs.writeFile(answers.configPath, JSON.stringify(generateConfig(answers), null, '  '), function (error) {
         if (error) {
             throw error;
         }
 
-        console.log('Login successful, writing config to: ' + answers.configPath + '...');
-        fs.writeFile(answers.configPath, JSON.stringify(generateConfig(answers, sessionData), null, "  "), function (error) {
-            if (error) {
-                throw error;
-            }
-    
-            console.log('Config written');
-        });
+        console.log('Config written');
     });
 });
