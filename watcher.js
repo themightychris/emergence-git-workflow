@@ -19,6 +19,7 @@ var emergence       = require('./lib/emergence'),
     config          = {
         debug:      false,
         logIgnored: false,
+        syncOnConnect: false,
         localDir:   '.',
 
         site: {
@@ -275,6 +276,11 @@ watcher.on('change', function (filePath, info) {
 });
 
 function checkIntegrity(callbackCheckIntegrity) {
+    if (!config.syncOnConnect) {
+        callbackCheckIntegrity();
+        return;
+    }
+
     console.log('Fetching remote file index...');
     site.request.get('/emergence', function(error, response, body) {
         console.log('Parsing remote file index...');
